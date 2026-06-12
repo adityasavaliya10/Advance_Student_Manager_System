@@ -1,764 +1,360 @@
-# =========================================================
-# ADVANCED STUDENT TRACKER WEB APPLICATION
-# Full Flask + Python + HTML + CSS Project
-# Single File Project
-# =========================================================
-
-from flask import Flask, render_template_string, request, redirect, url_for
-import json
-import os
-import csv
-
-app = Flask(__name__)
-
-DATA_FILE = "students.json"
-
-# =========================================================
-# STUDENT CLASS
-# =========================================================
-
-class Student:
-
-    def __init__(
-        self,
-        student_id,
-        name,
-        age,
-        grade,
-        marks,
-        attendance
-    ):
-
-        self.student_id = student_id
-        self.name = name
-        self.age = age
-        self.grade = grade
-        self.marks = marks
-        self.attendance = attendance
-
-    # -----------------------------------------------------
-
-    def total_marks(self):
-        return sum(self.marks.values())
-
-    # -----------------------------------------------------
-
-    def percentage(self):
-
-        if len(self.marks) == 0:
-            return 0
-
-        total = len(self.marks) * 100
-
-        return round(
-            (self.total_marks() / total) * 100,
-            2
-        )
-
-    # -----------------------------------------------------
-
-    def gpa(self):
-
-        p = self.percentage()
-
-        if p >= 90:
-            return 4.0
-
-        elif p >= 80:
-            return 3.7
-
-        elif p >= 70:
-            return 3.0
-
-        elif p >= 60:
-            return 2.5
-
-        elif p >= 50:
-            return 2.0
-
-        return 0.0
-
-    # -----------------------------------------------------
-
-    def performance(self):
-
-        p = self.percentage()
-
-        if p >= 90:
-            return "Excellent"
-
-        elif p >= 75:
-            return "Very Good"
-
-        elif p >= 60:
-            return "Good"
-
-        elif p >= 40:
-            return "Average"
-
-        return "Needs Improvement"
-
-    # -----------------------------------------------------
-
-    def to_dict(self):
-
-        return {
-            "student_id": self.student_id,
-            "name": self.name,
-            "age": self.age,
-            "grade": self.grade,
-            "marks": self.marks,
-            "attendance": self.attendance
-        }
-
-
-# =========================================================
-# DATA FUNCTIONS
-# =========================================================
-
-def load_students():
-
-    if not os.path.exists(DATA_FILE):
-        return []
-
-    with open(DATA_FILE, "r") as file:
-
-        data = json.load(file)
-
-    students = []
-
-    for s in data:
-
-        student = Student(
-            s["student_id"],
-            s["name"],
-            s["age"],
-            s["grade"],
-            s["marks"],
-            s["attendance"]
-        )
-
-        students.append(student)
-
-    return students
-
-
-# =========================================================
-
-def save_students(students):
-
-    data = []
-
-    for student in students:
-        data.append(student.to_dict())
-
-    with open(DATA_FILE, "w") as file:
-
-        json.dump(data, file, indent=4)
-
-
-# =========================================================
-# HTML TEMPLATE
-# =========================================================
-
-HTML = """
-
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Advanced Student Tracker</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
-<style>
-
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:'Poppins',sans-serif;
-}
-
-body{
-    background:linear-gradient(135deg,#0f172a,#1e293b,#111827);
-    color:white;
-    min-height:100vh;
-}
-
-/* NAVBAR */
-
-.navbar{
-    width:100%;
-    padding:20px 40px;
-    display:flex;
-    justify-content:space-between;
-    align-items:center;
-    background:rgba(255,255,255,0.05);
-    backdrop-filter:blur(12px);
-    border-bottom:1px solid rgba(255,255,255,0.1);
-}
-
-.logo{
-    font-size:30px;
-    font-weight:700;
-    color:#38bdf8;
-}
-
-.nav-links{
-    display:flex;
-    gap:25px;
-}
-
-.nav-links a{
-    text-decoration:none;
-    color:white;
-    transition:0.3s;
-}
-
-.nav-links a:hover{
-    color:#38bdf8;
-}
-
-/* HERO */
-
-.hero{
-    text-align:center;
-    padding:60px 20px;
-}
-
-.hero h1{
-    font-size:55px;
-    background:linear-gradient(to right,#38bdf8,#818cf8);
-    -webkit-background-clip:text;
-    -webkit-text-fill-color:transparent;
-}
-
-.hero p{
-    color:#cbd5e1;
-    margin-top:15px;
-}
-
-/* CONTAINER */
-
-.container{
-    width:95%;
-    max-width:1400px;
-    margin:auto;
-}
-
-/* DASHBOARD */
-
-.dashboard{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(250px,1fr));
-    gap:25px;
-    margin-bottom:40px;
-}
-
-.card{
-    background:rgba(255,255,255,0.06);
-    border-radius:20px;
-    padding:30px;
-    border:1px solid rgba(255,255,255,0.1);
-    backdrop-filter:blur(10px);
-    transition:0.3s;
-}
-
-.card:hover{
-    transform:translateY(-5px);
-}
-
-.card h2{
-    color:#38bdf8;
-    font-size:42px;
-}
-
-.card p{
-    margin-top:10px;
-    color:#cbd5e1;
-}
-
-/* FORMS */
-
-.form-section{
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:30px;
-    margin-bottom:40px;
-}
-
-.form-box{
-    background:rgba(255,255,255,0.06);
-    border-radius:20px;
-    padding:30px;
-}
-
-.form-box h2{
-    margin-bottom:20px;
-    color:#38bdf8;
-}
-
-.input-group{
-    margin-bottom:20px;
-}
-
-.input-group input{
-    width:100%;
-    padding:15px;
-    border:none;
-    border-radius:12px;
-    background:rgba(255,255,255,0.08);
-    color:white;
-    outline:none;
-}
-
-.input-group input::placeholder{
-    color:#94a3b8;
-}
-
-.btn{
-    width:100%;
-    padding:15px;
-    border:none;
-    border-radius:12px;
-    background:linear-gradient(45deg,#38bdf8,#6366f1);
-    color:white;
-    font-size:16px;
-    cursor:pointer;
-    transition:0.3s;
-    font-weight:600;
-}
-
-.btn:hover{
-    transform:scale(1.02);
-}
-
-/* TABLE */
-
-.table-box{
-    background:rgba(255,255,255,0.06);
-    padding:30px;
-    border-radius:20px;
-    overflow-x:auto;
-}
-
-.table-box h2{
-    margin-bottom:20px;
-    color:#38bdf8;
-}
-
-table{
-    width:100%;
-    border-collapse:collapse;
-}
-
-th{
-    padding:16px;
-    text-align:left;
-    color:#38bdf8;
-    background:rgba(255,255,255,0.06);
-}
-
-td{
-    padding:16px;
-    border-bottom:1px solid rgba(255,255,255,0.08);
-}
-
-tr:hover{
-    background:rgba(255,255,255,0.05);
-}
-
-/* BADGES */
-
-.rank{
-    background:#22c55e;
-    padding:7px 12px;
-    border-radius:10px;
-    font-weight:bold;
-}
-
-.performance{
-    color:#38bdf8;
-    font-weight:600;
-}
-
-/* FOOTER */
-
-.footer{
-    text-align:center;
-    padding:40px;
-    color:#94a3b8;
-}
-
-/* RESPONSIVE */
-
-@media(max-width:900px){
-
-    .form-section{
-        grid-template-columns:1fr;
-    }
-
-    .hero h1{
-        font-size:38px;
-    }
-
-}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="navbar">
-
-    <div class="logo">
-        🎓 Student Tracker
-    </div>
-
-    <div class="nav-links">
-        <a href="/">Dashboard</a>
-        <a href="/">Students</a>
-        <a href="/export">Export CSV</a>
-    </div>
-
-</div>
-
-<div class="hero">
-
-    <h1>Advanced Student Tracker</h1>
-
-    <p>
-        Modern Flask Web Application for Student Management
-    </p>
-
-</div>
-
-<div class="container">
-
-    <!-- DASHBOARD -->
-
-    <div class="dashboard">
-
-        <div class="card">
-            <h2>{{ total_students }}</h2>
-            <p>Total Students</p>
-        </div>
-
-        <div class="card">
-            <h2>{{ average_percentage }}%</h2>
-            <p>Average Percentage</p>
-        </div>
-
-        <div class="card">
-            <h2>{{ top_score }}%</h2>
-            <p>Highest Score</p>
-        </div>
-
-    </div>
-
-    <!-- FORMS -->
-
-    <div class="form-section">
-
-        <!-- ADD FORM -->
-
-        <div class="form-box">
-
-            <h2>Add Student</h2>
-
-            <form method="POST" action="/add">
-
-                <div class="input-group">
-                    <input type="text" name="student_id" placeholder="Student ID" required>
-                </div>
-
-                <div class="input-group">
-                    <input type="text" name="name" placeholder="Student Name" required>
-                </div>
-
-                <div class="input-group">
-                    <input type="number" name="age" placeholder="Age" required>
-                </div>
-
-                <div class="input-group">
-                    <input type="text" name="grade" placeholder="Grade/Class" required>
-                </div>
-
-                <div class="input-group">
-                    <input type="number" name="math" placeholder="Math Marks" required>
-                </div>
-
-                <div class="input-group">
-                    <input type="number" name="science" placeholder="Science Marks" required>
-                </div>
-
-                <div class="input-group">
-                    <input type="number" name="english" placeholder="English Marks" required>
-                </div>
-
-                <div class="input-group">
-                    <input type="number" name="attendance" placeholder="Attendance %" required>
-                </div>
-
-                <button class="btn">
-                    ➕ Add Student
-                </button>
-
-            </form>
-
-        </div>
-
-        <!-- SEARCH -->
-
-        <div class="form-box">
-
-            <h2>Search Student</h2>
-
-            <form method="GET" action="/">
-
-                <div class="input-group">
-                    <input type="text" name="search" placeholder="Search by Name">
-                </div>
-
-                <button class="btn">
-                    🔍 Search Student
-                </button>
-
-            </form>
-
-        </div>
-
-    </div>
-
-    <!-- TABLE -->
-
-    <div class="table-box">
-
-        <h2>🏆 Student Rank List</h2>
-
-        <table>
-
-            <thead>
-
-                <tr>
-
-                    <th>Rank</th>
-                    <th>ID</th>
-                    <th>Name</th>
-                    <th>Grade</th>
-                    <th>Percentage</th>
-                    <th>GPA</th>
-                    <th>Performance</th>
-                    <th>Attendance</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody>
-
-                {% for student in students %}
-
-                <tr>
-
-                    <td>
-                        <span class="rank">
-                            #{{ loop.index }}
-                        </span>
-                    </td>
-
-                    <td>{{ student.student_id }}</td>
-
-                    <td>{{ student.name }}</td>
-
-                    <td>{{ student.grade }}</td>
-
-                    <td>{{ student.percentage() }}%</td>
-
-                    <td>{{ student.gpa() }}</td>
-
-                    <td class="performance">
-                        {{ student.performance() }}
-                    </td>
-
-                    <td>{{ student.attendance }}%</td>
-
-                </tr>
-
-                {% endfor %}
-
-            </tbody>
-
-        </table>
-
-    </div>
-
-    <div class="footer">
-        Built with Flask • Python • HTML • CSS
-    </div>
-
-</div>
-
-</body>
-</html>
 
 """
+ADVANCED STUDENT TRACKER (Single File)
+Features:
+- SQLite database
+- Admin login
+- Add / Update / Delete students
+- Search students
+- Ranking system
+- GPA calculation
+- Attendance tracking
+- Dashboard analytics
+- CSV export
+- JSON backup
+- Scholarship eligibility
+"""
 
-# =========================================================
-# HOME ROUTE
-# =========================================================
+import sqlite3
+import csv
+import json
+from datetime import datetime
 
-@app.route("/")
-def home():
+DB = "students.db"
+ADMIN_USER = "admin"
+ADMIN_PASS = "admin123"
 
-    students = load_students()
 
-    search = request.args.get("search")
+class StudentTracker:
+    def __init__(self):
+        self.conn = sqlite3.connect(DB)
+        self.cur = self.conn.cursor()
+        self.create_tables()
 
-    if search:
+    def create_tables(self):
+        self.cur.execute("""
+        CREATE TABLE IF NOT EXISTS students(
+            student_id TEXT PRIMARY KEY,
+            name TEXT,
+            age INTEGER,
+            grade TEXT,
+            math REAL,
+            science REAL,
+            english REAL,
+            attendance REAL,
+            created_at TEXT
+        )
+        """)
+        self.conn.commit()
 
-        students = [
-            s for s in students
-            if search.lower() in s.name.lower()
-        ]
+    def percentage(self, m, s, e):
+        return round((m + s + e) / 300 * 100, 2)
 
-    students = sorted(
-        students,
-        key=lambda s: s.percentage(),
-        reverse=True
-    )
+    def gpa(self, pct):
+        if pct >= 90: return 4.0
+        if pct >= 80: return 3.7
+        if pct >= 70: return 3.0
+        if pct >= 60: return 2.5
+        if pct >= 50: return 2.0
+        return 0.0
 
-    total_students = len(students)
+    def performance(self, pct):
+        if pct >= 90: return "Excellent"
+        if pct >= 75: return "Very Good"
+        if pct >= 60: return "Good"
+        if pct >= 40: return "Average"
+        return "Needs Improvement"
 
-    average_percentage = 0
+    def scholarship(self, pct, attendance):
+        return "Eligible" if pct >= 85 and attendance >= 90 else "Not Eligible"
 
-    if total_students > 0:
+    def add_student(self):
+        sid = input("Student ID: ")
+        name = input("Name: ")
+        age = int(input("Age: "))
+        grade = input("Grade: ")
+        math = float(input("Math: "))
+        science = float(input("Science: "))
+        english = float(input("English: "))
+        attendance = float(input("Attendance %: "))
 
-        average_percentage = round(
-            sum(s.percentage() for s in students)
-            / total_students,
-            2
+        try:
+            self.cur.execute("""
+            INSERT INTO students VALUES (?,?,?,?,?,?,?,?,?)
+            """, (
+                sid, name, age, grade,
+                math, science, english,
+                attendance,
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            ))
+            self.conn.commit()
+            print("Student added successfully.")
+        except sqlite3.IntegrityError:
+            print("Student ID already exists.")
+
+    def view_students(self):
+        rows = self.cur.execute("SELECT * FROM students").fetchall()
+
+        if not rows:
+            print("No students found.")
+            return
+
+        ranked = []
+
+        for r in rows:
+            pct = self.percentage(r[4], r[5], r[6])
+            ranked.append((pct, r))
+
+        ranked.sort(reverse=True)
+
+        print("\nRANK LIST")
+        print("-" * 120)
+
+        for rank, (_, r) in enumerate(ranked, start=1):
+            pct = self.percentage(r[4], r[5], r[6])
+            gpa = self.gpa(pct)
+
+            print(
+                f"#{rank} | {r[0]} | {r[1]} | "
+                f"{pct}% | GPA:{gpa} | Attendance:{r[7]}%"
+            )
+
+    def search_student(self):
+        keyword = input("Name or ID: ")
+
+        rows = self.cur.execute("""
+        SELECT * FROM students
+        WHERE student_id LIKE ? OR name LIKE ?
+        """, (f"%{keyword}%", f"%{keyword}%")).fetchall()
+
+        for r in rows:
+            pct = self.percentage(r[4], r[5], r[6])
+
+            print("\n--------------------")
+            print("ID:", r[0])
+            print("Name:", r[1])
+            print("Percentage:", pct)
+            print("Performance:", self.performance(pct))
+            print("--------------------")
+
+    def update_student(self):
+        sid = input("Student ID: ")
+
+        row = self.cur.execute(
+            "SELECT * FROM students WHERE student_id=?",
+            (sid,)
+        ).fetchone()
+
+        if not row:
+            print("Student not found.")
+            return
+
+        name = input(f"Name ({row[1]}): ") or row[1]
+        age = input(f"Age ({row[2]}): ") or row[2]
+        grade = input(f"Grade ({row[3]}): ") or row[3]
+
+        math = input(f"Math ({row[4]}): ") or row[4]
+        science = input(f"Science ({row[5]}): ") or row[5]
+        english = input(f"English ({row[6]}): ") or row[6]
+        attendance = input(f"Attendance ({row[7]}): ") or row[7]
+
+        self.cur.execute("""
+        UPDATE students
+        SET name=?,age=?,grade=?,
+            math=?,science=?,english=?,
+            attendance=?
+        WHERE student_id=?
+        """, (
+            name, age, grade,
+            math, science, english,
+            attendance, sid
+        ))
+        self.conn.commit()
+
+        print("Updated successfully.")
+
+    def delete_student(self):
+        sid = input("Student ID: ")
+
+        self.cur.execute(
+            "DELETE FROM students WHERE student_id=?",
+            (sid,)
         )
 
-    top_score = 0
+        self.conn.commit()
+        print("Deleted successfully.")
 
-    if students:
-        top_score = students[0].percentage()
+    def dashboard(self):
+        rows = self.cur.execute(
+            "SELECT * FROM students"
+        ).fetchall()
 
-    return render_template_string(
+        if not rows:
+            print("No data.")
+            return
 
-        HTML,
+        percentages = [
+            self.percentage(r[4], r[5], r[6])
+            for r in rows
+        ]
 
-        students=students,
+        avg = round(sum(percentages) / len(percentages), 2)
+        top = max(percentages)
+        low = min(percentages)
 
-        total_students=total_students,
+        print("\n===== DASHBOARD =====")
+        print("Total Students :", len(rows))
+        print("Average %      :", avg)
+        print("Highest %      :", top)
+        print("Lowest %       :", low)
 
-        average_percentage=average_percentage,
+        failed = sum(1 for p in percentages if p < 40)
+        print("Failed Students:", failed)
 
-        top_score=top_score
-    )
+    def topper(self):
+        rows = self.cur.execute(
+            "SELECT * FROM students"
+        ).fetchall()
 
+        if not rows:
+            return
 
-# =========================================================
-# ADD STUDENT
-# =========================================================
+        best = None
+        best_pct = -1
 
-@app.route("/add", methods=["POST"])
-def add_student():
+        for r in rows:
+            pct = self.percentage(r[4], r[5], r[6])
 
-    students = load_students()
+            if pct > best_pct:
+                best_pct = pct
+                best = r
 
-    student_id = request.form["student_id"]
-    name = request.form["name"]
-    age = int(request.form["age"])
-    grade = request.form["grade"]
+        print("\nTOPPER")
+        print(best[1], "-", best_pct, "%")
 
-    math = float(request.form["math"])
-    science = float(request.form["science"])
-    english = float(request.form["english"])
+    def scholarship_report(self):
+        rows = self.cur.execute(
+            "SELECT * FROM students"
+        ).fetchall()
 
-    attendance = float(request.form["attendance"])
+        print("\nSCHOLARSHIP REPORT")
 
-    marks = {
+        for r in rows:
+            pct = self.percentage(r[4], r[5], r[6])
 
-        "Math": math,
-        "Science": science,
-        "English": english
-    }
+            print(
+                r[1],
+                "->",
+                self.scholarship(pct, r[7])
+            )
 
-    student = Student(
+    def export_csv(self):
+        rows = self.cur.execute(
+            "SELECT * FROM students"
+        ).fetchall()
 
-        student_id,
-        name,
-        age,
-        grade,
-        marks,
-        attendance
-    )
-
-    students.append(student)
-
-    save_students(students)
-
-    return redirect(url_for("home"))
-
-
-# =========================================================
-# EXPORT CSV
-# =========================================================
-
-@app.route("/export")
-def export_csv():
-
-    students = load_students()
-
-    with open(
-        "students.csv",
-        "w",
-        newline=""
-    ) as file:
-
-        writer = csv.writer(file)
-
-        writer.writerow([
-
-            "Student ID",
-            "Name",
-            "Age",
-            "Grade",
-            "Percentage",
-            "GPA",
-            "Attendance"
-
-        ])
-
-        for s in students:
+        with open("students_export.csv", "w", newline="") as f:
+            writer = csv.writer(f)
 
             writer.writerow([
-
-                s.student_id,
-                s.name,
-                s.age,
-                s.grade,
-                s.percentage(),
-                s.gpa(),
-                s.attendance
-
+                "ID","Name","Age","Grade",
+                "Math","Science","English",
+                "Attendance","Percentage"
             ])
 
-    return redirect(url_for("home"))
+            for r in rows:
+                writer.writerow([
+                    r[0], r[1], r[2], r[3],
+                    r[4], r[5], r[6], r[7],
+                    self.percentage(r[4], r[5], r[6])
+                ])
+
+        print("CSV exported.")
+
+    def backup_json(self):
+        rows = self.cur.execute(
+            "SELECT * FROM students"
+        ).fetchall()
+
+        data = []
+
+        for r in rows:
+            data.append({
+                "student_id": r[0],
+                "name": r[1],
+                "age": r[2],
+                "grade": r[3],
+                "math": r[4],
+                "science": r[5],
+                "english": r[6],
+                "attendance": r[7],
+                "created_at": r[8]
+            })
+
+        with open("backup.json", "w") as f:
+            json.dump(data, f, indent=4)
+
+        print("Backup created.")
+
+    def menu(self):
+        while True:
+            print("\n" + "=" * 40)
+            print("ADVANCED STUDENT TRACKER")
+            print("=" * 40)
+            print("1. Add Student")
+            print("2. View Students")
+            print("3. Search Student")
+            print("4. Update Student")
+            print("5. Delete Student")
+            print("6. Dashboard")
+            print("7. Topper")
+            print("8. Scholarship Report")
+            print("9. Export CSV")
+            print("10. Backup JSON")
+            print("11. Exit")
+
+            choice = input("Choose: ")
+
+            if choice == "1":
+                self.add_student()
+            elif choice == "2":
+                self.view_students()
+            elif choice == "3":
+                self.search_student()
+            elif choice == "4":
+                self.update_student()
+            elif choice == "5":
+                self.delete_student()
+            elif choice == "6":
+                self.dashboard()
+            elif choice == "7":
+                self.topper()
+            elif choice == "8":
+                self.scholarship_report()
+            elif choice == "9":
+                self.export_csv()
+            elif choice == "10":
+                self.backup_json()
+            elif choice == "11":
+                break
+            else:
+                print("Invalid choice.")
 
 
-# =========================================================
-# MAIN
-# =========================================================
+def login():
+    print("=" * 40)
+    print("ADMIN LOGIN")
+    print("=" * 40)
+
+    user = input("Username: ")
+    password = input("Password: ")
+
+    return user == ADMIN_USER and password == ADMIN_PASS
+
 
 if __name__ == "__main__":
-
-    app.run(debug=True)
+    if login():
+        app = StudentTracker()
+        app.menu()
+    else:
+        print("Access denied.")
